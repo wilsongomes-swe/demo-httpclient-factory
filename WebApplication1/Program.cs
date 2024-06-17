@@ -7,8 +7,6 @@ var configuration = builder.Configuration;
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddHttpClient();
-
 builder.Services.AddOpenAi(configuration.GetSection("Providers:OpenAI"));
 
 var app = builder.Build();

@@ -13,6 +13,13 @@ public static class ServiceCollectionExtensions
 
         services.AddTransient<OpenAiGateway>();
         
+        services.AddHttpClient<OpenAiGateway>((serviceProvider, httpClient) =>
+        {
+            var openAiSettings = serviceProvider.GetRequiredService<IOptions<OpenAiSettings>>();
+            httpClient.BaseAddress = new (openAiSettings.Value.BaseAddress);
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {openAiSettings.Value.ApiKey}");
+        });
+        
         return services;
     }
 }
