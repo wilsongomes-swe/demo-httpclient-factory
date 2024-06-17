@@ -1,52 +1,109 @@
-## Options Pattern demo
+## IHttpClientFactory - Demo
 
-This repo is an example of the Options Pattern way of handling .Net app configurations, a more modular and with better separation of concerns way.
+This repo is an example of the best ways of using HttpClient and IHttpClientfactory.
+
+Instantiating HttpClients directly in the components that will use it (not recommended):
 
 ```csharp
-builder.Services.AddSingleton<IValidateOptions<OpenAiSettings>, OpenAiSettingsValidate>();
-
-builder.Services.AddOptionsWithValidateOnStart<OpenAiSettings>()
-    .Bind(builder.Configuration.GetSection("Providers:OpenAI"));
-
-// ...
 
 internal class OpenAiGateway(IOptions<OpenAiSettings> openAiSettings)
 {
     private readonly string _baseAddress = openAiSettings.Value.BaseAddress;
     private readonly string _apiKey = openAiSettings.Value.ApiKey;
-    
-    public Task<string> ExecutePrompt(string prompt) => 
-        Task.FromResult($"BaseAddress: {_baseAddress} / Api Key: {_apiKey}");
-}
 
-public class OpenAiSettingsValidate : IValidateOptions<OpenAiSettings>
-{
-    public ValidateOptionsResult Validate(string? name, OpenAiSettings options)
+    public async Task<string> ExecutePrompt(string prompt)
     {
-        var errors = new List<string>(); 
-        if(string.IsNullOrWhiteSpace(options.BaseAddress))
-            errors.Add("BaseAddress not found");
-        if(string.IsNullOrWhiteSpace(options.ApiKey))
-            errors.Add("ApiKey not found");
+        var client = new HttpClient { BaseAddress = new (_baseAddress) };
+        client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
 
-        return errors.Count > 0 ? 
-            ValidateOptionsResult.Fail(string.Join(';', errors)) 
-            : ValidateOptionsResult.Success;
+        var httpResponse = await client.PostAsJsonAsync("chat/completions", 
+            new CompletionsRequest("gpt-4o", [ new Message("user", prompt) ]));
+
+        var response = await httpResponse.Content.ReadFromJsonAsync<CompletionsResponse>();
+
+        return response!.Choices[0].Message.Content;
     }
 }
 
-public class OpenAiSettings
+```
+
+Instantiating HttpClients using factory, but it still in the components that will use it (not recommended):
+
+```csharp
+
+builder.Services.AddHttpClient();
+
+// ...
+
+internal class OpenAiGateway
 {
-    public string BaseAddress { get; init; } = "";
-    
-    public string ApiKey { get; init; } = "";
+    private readonly HttpClient _httpClient;
+
+    public OpenAiGateway(IOptions<OpenAiSettings> openAiSettings, IHttpClientFactory httpClientFactory)
+    {
+        _httpClient = httpClientFactory.CreateClient();
+        _httpClient.BaseAddress = new (openAiSettings.Value.BaseAddress);
+        _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {openAiSettings.Value.ApiKey}");
+    }
+
+    public async Task<string> ExecutePrompt(string prompt)
+    {
+        var httpResponse = await _httpClient.PostAsJsonAsync("chat/completions", 
+            new CompletionsRequest("gpt-4o", [ new Message("user", prompt) ]));
+
+        var response = await httpResponse.Content.ReadFromJsonAsync<CompletionsResponse>();
+        
+        return response!.Choices[0].Message.Content;
+    }
 }
+
+```
+
+Named HttpClients (recommended):
+
+```csharp
+
+// to add
+
+```
+
+Typed HttpClients (recommended):
+
+```csharp
+
+services.AddSingleton<IValidateOptions<OpenAiSettings>, OpenAiSettingsValidate>();
+services.AddOptionsWithValidateOnStart<OpenAiSettings>()
+    .Bind(configuration);
+
+services.AddTransient<OpenAiGateway>();
+
+services.AddHttpClient<OpenAiGateway>((serviceProvider, httpClient) =>
+{
+    var openAiSettings = serviceProvider.GetRequiredService<IOptions<OpenAiSettings>>();
+    httpClient.BaseAddress = new (openAiSettings.Value.BaseAddress);
+    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {openAiSettings.Value.ApiKey}");
+});
+
+// ...
+
+internal class OpenAiGateway(HttpClient httpClient)
+{
+    public async Task<string> ExecutePrompt(string prompt)
+    {
+        var httpResponse = await httpClient.PostAsJsonAsync("chat/completions", 
+            new CompletionsRequest("gpt-4o", [ new Message("user", prompt) ]));
+
+        var response = await httpResponse.Content.ReadFromJsonAsync<CompletionsResponse>();
+        
+        return response!.Choices[0].Message.Content;
+    }
+}
+
 ```
 
 This demo uses:
 - .Net 9
 
-<br /><br />
 ---
 
 | [<img src="https://github.com/wilsonneto-dev.png" width="75px;"/>][1] |
