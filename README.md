@@ -101,7 +101,7 @@ internal class OpenAiGateway(HttpClient httpClient)
 
 ```
 
-Messahe handler example:
+Message handler example:
 
 ```csharp
 
