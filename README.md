@@ -136,11 +136,3 @@ public class LoggingHandler(ILogger<LoggingHandler> logger) : DelegatingHandler
 This demo uses:
 - .Net 9
 
----
-
-| [<img src="https://github.com/wilsonneto-dev.png" width="75px;"/>][1] |
-| :-: |
-|[Wilson Neto][1]|
-
-
-[1]: https://github.com/wilsonneto-dev
